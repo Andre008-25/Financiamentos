@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sua Central Pro</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        :root {
+            --primary: #f97316;
+            --sidebar: #1e293b;
+            --card: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --urgent: #dc2626;
+            --medium: #f59e0b;
+            --normal: #16a34a;
+            --border-color: #e2e8f0;
+            --bg-light: #f1f5f9;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            color: var(--text-main );
+            background: var(--bg-light);
+        }
+
+        /* --- ECRÃ DE AUTENTICAÇÃO --- */
+        #auth-container { display: none; align-items: center; justify-content: center; width: 100%; min-height: 100vh; padding: 1rem; background: linear-gradient(-45deg, #f1f5f9, #e2e8f0, #f1f5f9, #e2e8f0); background-size: 400% 400%; animation: gradientBG 15s ease infinite; }
+        @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+        .auth-box { width: 100%; max-width: 400px; background: var(--card); padding: 2.5rem; border-radius: 24px; box-shadow: 0 10px 30px -5px rgba(0,0,0,0.1); text-align: center; }
+        .auth-box h1 { font-size: 2rem; color: var(--primary); margin-bottom: 0.5rem; }
+        .auth-box p { color: var(--text-muted); margin-bottom: 2rem; }
+        .auth-form { display: flex; flex-direction: column; gap: 1rem; }
+        .auth-form input { padding: 14px; border: 1px solid var(--border-color); border-radius: 12px; font-size: 1rem; }
+        .auth-form button { background: var(--primary); color: white; border: none; padding: 14px; border-radius: 12px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background 0.3s; }
+        .auth-form button:hover { background: #ea580c; }
+        .auth-toggle { margin-top: 1.5rem; color: var(--text-muted); font-size: 0.9rem; }
+        .auth-toggle a { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: none; }
+        #register-form, #auth-message { display: none; }
+        #auth-message { margin-top: 1rem; padding: 1rem; border-radius: 8px; font-weight: 500; }
+        .auth-message.success { background-color: #d1fae5; color: #065f46; }
+        .auth-message.error { background-color: #fee2e2; color: #991b1b; }
+
+        /* --- APLICAÇÃO PRINCIPAL --- */
+        #app-container { display: none; width: 100%; min-height: 100vh; }
+        
+        /* Navegação Lateral */
+        nav { width: 260px; background: var(--sidebar); color: white; position: fixed; height: 100%; padding: 2rem 1.2rem; z-index: 1000; display: flex; flex-direction: column; justify-content: space-between; transition: transform 0.3s ease-in-out; }
+        nav .logo { font-size: 1.5rem; font-weight: 800; margin-bottom: 3rem; color: var(--primary); letter-spacing: 1px; text-align: center; }
+        nav ul { list-style: none; }
+        nav ul li { padding: 16px; border-radius: 10px; margin-bottom: 10px; cursor: pointer; transition: all 0.3s; color: #94a3b8; display: flex; align-items: center; gap: 15px; font-weight: 500; }
+        nav ul li:hover { background: rgba(255,255,255,0.05); color: white; }
+        nav ul li.active { background: var(--primary); color: white; font-weight: 600; }
+        .material-symbols-outlined { font-size: 22px; }
+
+        /* Menu Móvel */
+        .mobile-menu-button { display: none; position: fixed; top: 15px; left: 15px; z-index: 1001; background: var(--sidebar); color: white; border: none; border-radius: 50%; width: 50px; height: 50px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.2); align-items: center; justify-content: center; }
+        .nav-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; }
+
+        /* Conteúdo Principal */
+        main { margin-left: 260px; flex-grow: 1; padding: 2.5rem; width: calc(100% - 260px); transition: margin-left 0.3s ease-in-out; }
+        .section { display: none; animation: fadeIn 0.5s ease-in-out; }
+        .section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Componentes Gerais */
+        .card { background: var(--card); border-radius: 16px; padding: 1.5rem 2rem; box-shadow: 0 4px 15px -2px rgba(0,0,0,0.06); margin-bottom: 2rem; border: 1px solid var(--border-color); }
+        h1, h2 { color: var(--text-main); }
+        h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+        h2 { font-size: 1.25rem; margin-bottom: 1rem; }
+        .page-subtitle { font-size: 1rem; color: var(--text-muted); margin-bottom: 2rem; }
+        .input-grid, .input-grid-financas { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+        .primary-btn { background: var(--primary); color: white; border: none; padding: 12px 24px; border-radius: 10px; cursor: pointer; font-weight: 600; transition: all 0.3s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .primary-btn:hover { background: #ea580c; transform: translateY(-2px); box-shadow: 0 4px 8px rgba(249, 115, 22, 0.3); }
+        input, select { padding: 12px 15px; border: 1px solid var(--border-color); border-radius: 10px; font-family: inherit; font-size: 1rem; width: 100%; }
+        
+        /* Dashboard */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; }
+        .stat-box { display: flex; flex-direction: column; }
+        .stat-box small { color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-size: 0.75rem; margin-bottom: 8px; }
+        .stat-box div { font-size: 2rem; font-weight: 700; }
+        #dash-saldo-total { color: var(--primary); }
+        #dash-ganhos-mes { color: var(--normal); }
+        #dash-gastos-mes { color: var(--urgent); }
+        .event-list-item { display: flex; align-items: center; gap: 1rem; padding: 0.8rem 0; border-bottom: 1px solid var(--border-color); }
+        .event-list-item:last-child { border-bottom: none; }
+        .event-list-date { font-weight: 600; color: var(--primary); }
+
+        /* Agenda */
+        .timeline { position: relative; padding-left: 20px; }
+        .timeline::before { content: ''; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; background: var(--border-color); border-radius: 2px; }
+        .event-card { position: relative; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; padding: 1.2rem 1.5rem; }
+        .event-card::before { content: ''; position: absolute; left: -28.5px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; border-radius: 50%; background: white; border: 4px solid var(--primary); z-index: 2; }
+        .prio-urgent { border-left: 5px solid var(--urgent); }
+        .prio-medium { border-left: 5px solid var(--medium); }
+        .prio-normal { border-left: 5px solid var(--normal); }
+        .event-date { font-size: 0.85rem; color: var(--text-muted); font-weight: 500; margin-bottom: 4px; }
+        
+        /* Finanças e Histórico */
+        table { display: block; overflow-x: auto; white-space: nowrap; width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th { text-align: left; padding: 14px; color: var(--text-muted); font-size: 0.8rem; border-bottom: 2px solid #edf2f7; text-transform: uppercase; }
+        td { padding: 16px 14px; border-bottom: 1px solid #f7fafc; }
+        .ganho { color: var(--normal); font-weight: 600; }
+        .gasto { color: var(--urgent); font-weight: 600; }
+        .del-btn { background: none; border: none; color: #cbd5e1; cursor: pointer; font-size: 1.4rem; transition: color 0.2s; }
+        .del-btn:hover { color: var(--urgent); }
+
+        /* --- RESPONSIVIDADE --- */
+        @media (min-width: 768px) {
+            .input-grid { grid-template-columns: 2fr 1fr 1fr; }
+            .input-grid-financas { grid-template-columns: 1fr 2fr 1fr 1fr; }
+        }
+        @media (max-width: 1024px) {
+            nav { width: 220px; }
+            main { margin-left: 220px; width: calc(100% - 220px); padding: 1.5rem; }
+        }
+        @media (max-width: 767px) {
+            nav { transform: translateX(-100%); }
+            nav.open { transform: translateX(0); }
+            main { margin-left: 0; width: 100%; padding: 1rem; }
+            .mobile-menu-button { display: flex; }
+            .nav-overlay.open { display: block; }
+            h1 { font-size: 1.8rem; }
+            .card { padding: 1rem 1.5rem; }
+            .stats-grid { grid-template-columns: 1fr; }
+            .timeline { padding-left: 0; }
+            .timeline::before, .event-card::before { display: none; }
+            .event-card { border-left-width: 5px; padding-left: 1rem; }
+            /* Adicione esta nova regra ao seu CSS */
+.chart-container {
+    position: relative;
+    height: 300px; /* Altura fixa para o gráfico */
+    width: 100%;
+}
+
+        }
+    </style>
+</head>
+<body>
+
+<div id="auth-container">
+    <div class="auth-box">
+        <form id="login-form" class="auth-form">
+            <h1>Bem-vindo!</h1><p>Faça login para aceder ao seu painel.</p>
+            <input type="email" id="login-email" placeholder="Email" required><input type="password" id="login-password" placeholder="Password" required>
+            <button type="submit">Entrar</button>
+        </form>
+        <form id="register-form" class="auth-form">
+            <h1>Criar Conta</h1><p>Registe-se para começar a organizar-se.</p>
+            <input type="email" id="register-email" placeholder="Email" required><input type="password" id="register-password" placeholder="Password (mín. 6 caracteres)" required>
+            <button type="submit">Criar Conta</button>
+        </form>
+        <div id="auth-message"></div>
+        <div class="auth-toggle">
+            <span id="toggle-to-register">Não tem uma conta? <a onclick="toggleAuthForms()">Crie uma aqui.</a></span>
+            <span id="toggle-to-login" style="display:none;">Já tem uma conta? <a onclick="toggleAuthForms()">Faça login.</a></span>
+        </div>
+    </div>
+</div>
+
+<div id="app-container">
+    <button class="mobile-menu-button" onclick="toggleNav()"><span class="material-symbols-outlined">menu</span></button>
+    <div class="nav-overlay" onclick="toggleNav()"></div>
+    <nav id="side-nav">
+        <div>
+            <div class="logo">Finanças</div>
+            <ul>
+                <li id="n-home" class="active" onclick="selectSection('home')"><span class="material-symbols-outlined">dashboard</span> Dashboard</li>
+                <li id="n-agenda" onclick="selectSection('agenda')"><span class="material-symbols-outlined">calendar_month</span> Agenda</li>
+                <li id="n-financas" onclick="selectSection('financas')"><span class="material-symbols-outlined">account_balance_wallet</span> Finanças</li>
+                <li id="n-historico" onclick="selectSection('historico')"><span class="material-symbols-outlined">history</span> Histórico</li>
+            </ul>
+        </div>
+        <ul><li id="logout-button" onclick="handleLogout()"><span class="material-symbols-outlined">logout</span> Sair</li></ul>
+    </nav>
+
+    <main>
+        <section id="home" class="section">
+            <h1>Dashboard</h1>
+            <p class="page-subtitle">Bem-vindo de volta! Aqui está um resumo da sua atividade.</p>
+            <div class="stats-grid">
+                <div class="card stat-box"><small>Saldo Total Acumulado</small><div id="dash-saldo-total">0.00€</div></div>
+                <div class="card stat-box"><small>Ganhos (Mês Atual)</small><div id="dash-ganhos-mes">0.00€</div></div>
+                <div class="card stat-box"><small>Gastos (Mês Atual)</small><div id="dash-gastos-mes">0.00€</div></div>
+            </div>
+            <div class="card">
+                <h2>Próximos Eventos</h2>
+                <div id="dash-eventos-lista">
+                    <p style="color: var(--text-muted); padding: 1rem 0;">Nenhum evento agendado.</p>
+                </div>
+            </div>
+          <div class="card">
+    <h2>Resumo Financeiro Anual</h2>
+    <div class="chart-container">
+        <canvas id="resumoChart"></canvas>
+    </div>
+        </section>
+
+        <section id="agenda" class="section">
+            <h1>Agenda</h1><p class="page-subtitle">Planeie os seus compromissos e tarefas.</p>
+            <div class="card">
+                <div class="input-grid">
+                    <input type="text" id="evNome" placeholder="Título do Evento"><input type="datetime-local" id="evData"><select id="evPrio"><option value="normal">Normal</option><option value="medium">Média</option><option value="urgent">Urgente</option></select>
+                </div>
+                <button class="primary-btn" onclick="addEvento()" style="margin-top: 1rem; width: 100%;">Agendar</button>
+            </div>
+            <div class="timeline" id="listAgenda"></div>
+        </section>
+
+        <section id="financas" class="section">
+            <h1>Controlo Financeiro</h1><p class="page-subtitle">Registe todos os seus ganhos e gastos.</p>
+            <div class="card">
+                <div class="input-grid-financas">
+                    <select id="fMes"></select><input type="text" id="fDesc" placeholder="Ex: Salário, Supermercado"><input type="number" id="fValor" placeholder="0.00 €"><select id="fTipo"><option value="ganho">Ganho (+)</option><option value="gasto">Gasto (-)</option></select>
+                </div>
+                <button class="primary-btn" onclick="addFinanca()" style="margin-top: 1rem; width: 100%;">Registar</button>
+            </div>
+            <div id="listFinancas"></div>
+        </section>
+
+        <section id="historico" class="section">
+            <h1>Histórico Anual</h1><p class="page-subtitle">Consulte os resumos de anos anteriores.</p>
+            <div id="listHistorico"></div>
+        </section>
+    </main>
+</div>
+
+<script>
+// ==================================================
+// CONFIGURAÇÃO E AUTENTICAÇÃO
+// ==================================================
+const SUPABASE_URL = 'https://ckmthozssqmoclzaqulf.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNrbXRob3pzc3Ftb2NsemFxdWxmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0ODcyMzUsImV4cCI6MjA4NjA2MzIzNX0.rHgm1Lv33ID8FzOuTRhPriPYe3rEYHHY41Uf01h-ws8';
+
+const { createClient } = supabase;
+const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY );
+
+const authContainer = document.getElementById('auth-container');
+const appContainer = document.getElementById('app-container');
+const loginForm = document.getElementById('login-form');
+const registerForm = document.getElementById('register-form');
+const authMessage = document.getElementById('auth-message');
+
+function showMessage(message, type = 'success') { authMessage.textContent = message; authMessage.className = `auth-message ${type}`; authMessage.style.display = 'block'; }
+function toggleAuthForms() { const isLoginVisible = loginForm.style.display !== 'none'; loginForm.style.display = isLoginVisible ? 'none' : 'block'; document.getElementById('toggle-to-register').style.display = isLoginVisible ? 'none' : 'block'; registerForm.style.display = isLoginVisible ? 'block' : 'none'; document.getElementById('toggle-to-login').style.display = isLoginVisible ? 'block' : 'none'; authMessage.style.display = 'none'; }
+async function handleSignUp(event) { event.preventDefault(); const email = document.getElementById('register-email').value, password = document.getElementById('register-password').value; showMessage("A criar conta...", "success"); const { error } = await _supabase.auth.signUp({ email, password }); if (error) showMessage(`Erro: ${error.message}`, "error"); else showMessage("Conta criada! Verifique o seu email para ativar.", "success"); }
+async function handleLogin(event) { event.preventDefault(); const email = document.getElementById('login-email').value, password = document.getElementById('login-password').value; showMessage("A fazer login...", "success"); const { data, error } = await _supabase.auth.signInWithPassword({ email, password }); if (error) showMessage(`Erro: ${error.message}`, "error"); else initializeMainApp(data.user); }
+async function handleLogout() { await _supabase.auth.signOut(); window.location.reload(); }
+
+loginForm.addEventListener('submit', handleLogin);
+registerForm.addEventListener('submit', handleSignUp);
+
+// ==================================================
+// LÓGICA DA APLICAÇÃO
+// ==================================================
+let agenda = []; let financas = {}; let currentUser = null; let chartInstance = null;
+const meses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+
+async function loadUserData() {
+    const { data: agendaData, error: agendaError } = await _supabase.from('agenda').select('*').eq('user_id', currentUser.id);
+    if (agendaError) console.error('Erro agenda:', agendaError); else agenda = agendaData;
+
+    const { data: financasData, error: financasError } = await _supabase.from('financas').select('*').eq('user_id', currentUser.id);
+    if (financasError) console.error('Erro finanças:', financasError);
+    else {
+        financas = {};
+        for (const f of financasData) { if (!financas[f.mes]) financas[f.mes] = []; financas[f.mes].push(f); }
+    }
+    renderTudo();
+}
+
+async function addEvento() { const nome = document.getElementById('evNome').value, data = document.getElementById('evData').value, prio = document.getElementById('evPrio').value; if (!nome || !data) return alert("Preencha título e data."); const { error } = await _supabase.from('agenda').insert({ nome, data, prio, user_id: currentUser.id }); if (error) alert(error.message); else { document.getElementById('evNome').value = ""; document.getElementById('evData').value = ""; loadUserData(); } }
+async function delEvento(id) { const { error } = await _supabase.from('agenda').delete().match({ id }); if (error) alert(error.message); else loadUserData(); }
+async function addFinanca() { const mes = document.getElementById('fMes').value, desc = document.getElementById('fDesc').value, valor = parseFloat(document.getElementById('fValor').value), tipo = document.getElementById('fTipo').value; if (!desc || isNaN(valor) || valor <= 0) return alert("Descrição e valor são obrigatórios."); const { error } = await _supabase.from('financas').insert({ mes, desc, valor, tipo, user_id: currentUser.id }); if (error) alert(error.message); else { document.getElementById('fDesc').value = ""; document.getElementById('fValor').value = ""; loadUserData(); } }
+async function delFinanca(id) { const { error } = await _supabase.from('financas').delete().match({ id }); if (error) alert(error.message); else loadUserData(); }
+
+function renderTudo() { renderDashboard(); renderAgenda(); renderFinancas(); renderHistorico(); }
+
+function renderDashboard() {
+    let saldoTotal = 0, ganhosMes = 0, gastosMes = 0;
+    const mesAtual = meses[new Date().getMonth()];
+    for (const mes in financas) {
+        for (const f of financas[mes]) {
+            const valor = f.tipo === 'ganho' ? f.valor : -f.valor;
+            saldoTotal += valor;
+            if (f.mes === mesAtual) {
+                if (f.tipo === 'ganho') ganhosMes += f.valor;
+                else gastosMes += f.valor;
+            }
+        }
+    }
+    document.getElementById('dash-saldo-total').innerText = `${saldoTotal.toFixed(2)}€`;
+    document.getElementById('dash-ganhos-mes').innerText = `${ganhosMes.toFixed(2)}€`;
+    document.getElementById('dash-gastos-mes').innerText = `${gastosMes.toFixed(2)}€`;
+
+    const eventosFuturos = agenda.filter(ev => new Date(ev.data) > new Date()).sort((a, b) => new Date(a.data) - new Date(b.data)).slice(0, 3);
+    const listaEventos = document.getElementById('dash-eventos-lista');
+    if (eventosFuturos.length > 0) {
+        listaEventos.innerHTML = eventosFuturos.map(ev => `<div class="event-list-item"><span class="event-list-date">${new Date(ev.data).toLocaleDateString('pt-PT', {day: '2-digit', month: 'short'})}</span><span>${ev.nome}</span></div>`).join('');
+    } else {
+        listaEventos.innerHTML = `<p style="color: var(--text-muted); padding: 1rem 0;">Nenhum evento futuro agendado.</p>`;
+    }
+    renderChart();
+}
+
+function renderAgenda() { const container = document.getElementById('listAgenda'); agenda.sort((a, b) => new Date(a.data) - new Date(b.data)); if (agenda.length === 0) { container.innerHTML = `<div class="card" style="text-align:center; color: var(--text-muted);">Nenhum evento agendado.</div>`; return; } container.innerHTML = agenda.map(ev => `<div class="card event-card prio-${ev.prio}"><div><div class="event-date">${new Date(ev.data).toLocaleString('pt-PT', { dateStyle: 'long', timeStyle: 'short' })}</div><strong>${ev.nome}</strong></div><button class="del-btn" onclick="delEvento(${ev.id})"><span class="material-symbols-outlined">delete</span></button></div>`).join(''); }
+function renderFinancas() { const container = document.getElementById('listFinancas'); container.innerHTML = ""; const mesesOrdenados = Object.keys(financas).sort((a, b) => meses.indexOf(a) - meses.indexOf(b)); if (mesesOrdenados.length === 0) { container.innerHTML = `<div class="card" style="text-align:center; color: var(--text-muted);">Nenhum registo financeiro.</div>`; return; } for (let mes of mesesOrdenados) { let total = 0; const rows = financas[mes].map(f => { total += (f.tipo === 'ganho' ? f.valor : -f.valor); return `<tr><td>${f.desc}</td><td class="${f.tipo}">${f.tipo === 'ganho' ? '+' : '-'}${f.valor.toFixed(2)}€</td><td><button class="del-btn" onclick="delFinanca(${f.id})"><span class="material-symbols-outlined">cancel</span></button></td></tr>`; }).join(''); container.innerHTML += `<div class="card"><h3>${mes}</h3><strong style="font-size: 1.1rem; color:${total >= 0 ? 'var(--normal)':'var(--urgent)'}">Saldo Mensal: ${total.toFixed(2)}€</strong><table><thead><tr><th>Descrição</th><th>Valor</th><th>Ação</th></tr></thead><tbody>${rows}</tbody></table></div>`; } }
+function renderHistorico() { /* A lógica do histórico pode ser implementada aqui no futuro */ document.getElementById('listHistorico').innerHTML = `<div class="card" style="text-align:center; color: var(--text-muted);">Funcionalidade de histórico em desenvolvimento.</div>`; }
+
+function renderChart() { const ctx = document.getElementById('resumoChart').getContext('2d'); const data = { labels: meses, datasets: [ { label: 'Ganhos', data: meses.map(mes => (financas[mes] || []).filter(f => f.tipo === 'ganho').reduce((acc, f) => acc + f.valor, 0)), backgroundColor: 'rgba(22, 163, 74, 0.6)' }, { label: 'Gastos', data: meses.map(mes => (financas[mes] || []).filter(f => f.tipo === 'gasto').reduce((acc, f) => acc + f.valor, 0)), backgroundColor: 'rgba(220, 38, 38, 0.6)' } ] }; if (chartInstance) chartInstance.destroy(); chartInstance = new Chart(ctx, { type: 'bar', data: data, options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } }, plugins: { legend: { position: 'top' } } } }); }
+
+// ==================================================
+// INICIALIZAÇÃO E NAVEGAÇÃO
+// ==================================================
+const sideNav = document.getElementById('side-nav'), navOverlay = document.querySelector('.nav-overlay');
+function toggleNav() { sideNav.classList.toggle('open'); navOverlay.classList.toggle('open'); }
+function selectSection(id) { toggle(id); if (window.innerWidth < 768) toggleNav(); }
+function toggle(id) { document.querySelectorAll('.section').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); document.querySelectorAll('nav ul li').forEach(l => l.classList.remove('active')); document.getElementById('n-' + id).classList.add('active'); }
+
+function popularMeses() {
+    const selectMes = document.getElementById('fMes');
+    const mesAtual = meses[new Date().getMonth()];
+    selectMes.innerHTML = meses.map(m => `<option value="${m}" ${m === mesAtual ? 'selected' : ''}>${m}</option>`).join('');
+}
+
+function initializeMainApp(user) {
+    currentUser = user;
+    authContainer.style.display = 'none';
+    appContainer.style.display = 'block';
+    popularMeses();
+    loadUserData();
+    toggle('home');
+}
+
+async function checkUserSession() {
+    const { data: { session } } = await _supabase.auth.getSession();
+    if (session) {
+        initializeMainApp(session.user);
+    } else {
+        authContainer.style.display = 'flex';
+        appContainer.style.display = 'none';
+    }
+}
+
+window.onload = () => {
+    checkUserSession();
+};
+</script>
+</body>
+</html>
